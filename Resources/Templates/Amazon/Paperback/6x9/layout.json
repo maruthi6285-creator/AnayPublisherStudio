@@ -1,0 +1,16 @@
+{
+  "widowLines": 2,
+  "orphanLines": 2,
+  "chaptersStartOnRecto": true,
+  "insertBlankVersoBeforeChapter": true,
+  "keepWithNextLines": 2,
+  "keepHeadingsTogether": true,
+  "baselineGridPoints": 0,
+  "pageBalanceTolerancePoints": 12,
+  "runningMatter": {
+    "rectoTemplate": "{chapter}",
+    "versoTemplate": "{title}",
+    "pageNumbers": "Arabic",
+    "fontSizePoints": 9
+  }
+}

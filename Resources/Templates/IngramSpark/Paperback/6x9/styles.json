@@ -1,0 +1,11 @@
+{
+  "body": {
+    "font": "Georgia",
+    "size": 11
+  },
+  "heading1": {
+    "font": "Georgia",
+    "bold": true,
+    "startsNewPage": true
+  }
+}

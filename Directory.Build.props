@@ -1,0 +1,12 @@
+<Project>
+  <!-- Shared properties for every project in the solution. -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <Company>Anay Global Solutions Private Limited</Company>
+    <Product>Anay Publisher Studio</Product>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+</Project>

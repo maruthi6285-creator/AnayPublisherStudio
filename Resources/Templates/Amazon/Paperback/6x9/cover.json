@@ -1,0 +1,9 @@
+{
+  "overallWidthIn": 12.486,
+  "overallHeightIn": 9.250,
+  "trimWidthIn": 6.0,
+  "trimHeightIn": 9.0,
+  "spineWidthIn": 0.236,
+  "barcode": { "widthIn": 2.0, "heightIn": 1.2, "anchor": "back-cover-bottom-right", "safeMarginIn": 0.25 },
+  "source": "KDP PAPERBACK_6.000x9.000_105_BW_WHITE_en_US"
+}

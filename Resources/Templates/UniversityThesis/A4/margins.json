@@ -1,0 +1,29 @@
+{
+  "insideMargin": 1.25,
+  "outsideMargin": 1.0,
+  "topMargin": 1.0,
+  "bottomMargin": 1.0,
+  "mirrorMargins": true,
+  "gutterMinByPageCount": [
+    {
+      "maxPages": 150,
+      "inside": 0.375
+    },
+    {
+      "maxPages": 300,
+      "inside": 0.5
+    },
+    {
+      "maxPages": 500,
+      "inside": 0.625
+    },
+    {
+      "maxPages": 700,
+      "inside": 0.75
+    },
+    {
+      "maxPages": 828,
+      "inside": 0.875
+    }
+  ]
+}

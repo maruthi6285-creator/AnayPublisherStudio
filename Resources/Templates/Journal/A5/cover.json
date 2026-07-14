@@ -1,0 +1,11 @@
+{
+  "overallWidthIn": 12.0,
+  "overallHeightIn": 8.52,
+  "trimWidthIn": 5.83,
+  "trimHeightIn": 8.27,
+  "barcode": {
+    "widthIn": 1.8,
+    "heightIn": 1.0,
+    "anchor": "back-cover-bottom-right"
+  }
+}

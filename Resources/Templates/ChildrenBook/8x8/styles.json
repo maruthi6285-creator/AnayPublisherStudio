@@ -1,0 +1,11 @@
+{
+  "body": {
+    "font": "Comic Sans MS",
+    "size": 14
+  },
+  "heading1": {
+    "font": "Comic Sans MS",
+    "bold": true,
+    "startsNewPage": true
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "id": "lang-en-us",
+  "name": "English (US) Language Pack",
+  "version": "1.0.0",
+  "kind": "LanguagePacks",
+  "description": "Hyphenation and typography defaults for en-US"
+}

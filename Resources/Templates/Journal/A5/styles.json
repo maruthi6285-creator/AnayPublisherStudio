@@ -1,0 +1,11 @@
+{
+  "body": {
+    "font": "Times New Roman",
+    "size": 10
+  },
+  "heading1": {
+    "font": "Times New Roman",
+    "bold": true,
+    "startsNewPage": true
+  }
+}

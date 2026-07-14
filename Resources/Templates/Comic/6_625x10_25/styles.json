@@ -1,0 +1,11 @@
+{
+  "body": {
+    "font": "Arial",
+    "size": 10
+  },
+  "heading1": {
+    "font": "Arial Black",
+    "bold": true,
+    "startsNewPage": true
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "platform": "Amazon",
+  "name": "Amazon KDP",
+  "minPages": 24,
+  "maxPages": 828,
+  "profile": "KDP Paperback"
+}

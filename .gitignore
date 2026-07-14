@@ -1,0 +1,17 @@
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.db
+*.db-shm
+*.db-wal
+output/
+sample/out/
+.dotnet/
+TestResults/
+coverage/
+*.log
+*.nupkg
+*.snupkg
+appsettings.Development.json
