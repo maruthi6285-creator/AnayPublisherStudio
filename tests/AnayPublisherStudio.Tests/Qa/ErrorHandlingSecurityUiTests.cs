@@ -156,7 +156,7 @@ public class ErrorHandlingSecurityUiTests
                      "OpenManuscriptCommand", "SaveProjectCommand", "PublishCommand",
                      "RefreshPreviewCommand", "PreviewSingleCommand", "PreviewFacingCommand",
                      "PreviewContinuousCommand", "ToggleGuidesCommand", "ZoomInCommand", "ZoomOutCommand",
-                     "ToggleThemeCommand", "DesignCoverCommand", "ValidateCoverCommand",
+                     "SaveSettingsCommand", "DesignCoverCommand", "ValidateCoverCommand",
                      "RunPreflightCommand", "GenerateDescriptionCommand", "SuggestKeywordsCommand",
                  })
         {
@@ -168,6 +168,7 @@ public class ErrorHandlingSecurityUiTests
         Assert.Contains("ToggleTheme", vm);
         Assert.Contains("RefreshPreview", vm);
         Assert.Contains("PreviewMode", vm);
+        Assert.Contains("Settings", xaml); // settings panel
         Assert.True(File.Exists(dark));
         Assert.True(File.Exists(light));
         Assert.Contains("WindowBackground", File.ReadAllText(dark));
