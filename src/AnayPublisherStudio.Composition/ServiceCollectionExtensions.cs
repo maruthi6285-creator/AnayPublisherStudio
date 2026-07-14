@@ -33,11 +33,22 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAnayPublisherStudio(
         this IServiceCollection services, IConfiguration configuration)
     {
-        services.Configure<ApplicationOptions>(options =>
-            configuration.GetSection(ApplicationOptions.SectionName).Bind(options));
+        var section = configuration.GetSection(ApplicationOptions.SectionName);
+
+        services.Configure<ApplicationOptions>(options => section.Bind(options));
+        services.Configure<AppSettings>(options => section.GetSection(nameof(ApplicationOptions.App)).Bind(options));
+        services.Configure<TemplatesSettings>(options => section.GetSection(nameof(ApplicationOptions.Templates)).Bind(options));
+        services.Configure<RenderingSettings>(options => section.GetSection(nameof(ApplicationOptions.Rendering)).Bind(options));
+        services.Configure<TypographySettings>(options => section.GetSection(nameof(ApplicationOptions.Typography)).Bind(options));
+        services.Configure<ValidationSettings>(options => section.GetSection(nameof(ApplicationOptions.Validation)).Bind(options));
+        services.Configure<PublishingSettings>(options => section.GetSection(nameof(ApplicationOptions.Publishing)).Bind(options));
+        services.Configure<LoggingSettings>(options => section.GetSection(nameof(ApplicationOptions.Logging)).Bind(options));
+        services.Configure<ThemeSettings>(options => section.GetSection(nameof(ApplicationOptions.Theme)).Bind(options));
+        services.Configure<BackupSettings>(options => section.GetSection(nameof(ApplicationOptions.Backup)).Bind(options));
+        services.Configure<PluginSettings>(options => section.GetSection(nameof(ApplicationOptions.Plugins)).Bind(options));
 
         var appOptions = new ApplicationOptions();
-        configuration.GetSection(ApplicationOptions.SectionName).Bind(appOptions);
+        section.Bind(appOptions);
 
         var appData = ResolveAppDataDirectory(appOptions);
         var templatesRoot = ResolveTemplatesRoot(appOptions, appData);

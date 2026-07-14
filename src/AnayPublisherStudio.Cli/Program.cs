@@ -35,6 +35,7 @@ var configuration = new ConfigurationBuilder()
     .SetBasePath(AppContext.BaseDirectory)
     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
     .AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: false)
+    .AddEnvironmentVariables(prefix: "APS_")
     .AddInMemoryCollection(new Dictionary<string, string?>
     {
         [$"{ApplicationOptions.SectionName}:Templates:RootPath"] = args.Length > 1 && args[1] != "--output"
