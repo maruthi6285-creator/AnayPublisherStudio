@@ -3,4 +3,36 @@
     <SolidColorBrush x:Key="WindowBackground" Color="#F5F5F5"/>
     <SolidColorBrush x:Key="CanvasBackground" Color="#E8E8E8"/>
     <SolidColorBrush x:Key="PrimaryText" Color="#1A1A1A"/>
+    <SolidColorBrush x:Key="SecondaryText" Color="#666666"/>
+    <SolidColorBrush x:Key="BorderBrush" Color="#CCCCCC"/>
+    <SolidColorBrush x:Key="ButtonBackground" Color="#E0E0E0"/>
+    <SolidColorBrush x:Key="ButtonHoverBackground" Color="#D0D0D0"/>
+    <SolidColorBrush x:Key="ButtonPressedBackground" Color="#C0C0C0"/>
+    <SolidColorBrush x:Key="ButtonBorder" Color="#AAAAAA"/>
+    <SolidColorBrush x:Key="ComboBoxBackground" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="ComboBoxPopupBackground" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="TextBoxBackground" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="TextBoxBorder" Color="#CCCCCC"/>
+    <SolidColorBrush x:Key="TabHeaderBackground" Color="#E8E8E8"/>
+    <SolidColorBrush x:Key="TabHeaderSelectedBackground" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="TabHeaderHoverBackground" Color="#F0F0F0"/>
+    <SolidColorBrush x:Key="TabHeaderBorder" Color="#CCCCCC"/>
+    <SolidColorBrush x:Key="GroupBoxHeaderForeground" Color="#333333"/>
+    <SolidColorBrush x:Key="StatusBarBackground" Color="#DDDDDD"/>
+    <SolidColorBrush x:Key="StatusBarForeground" Color="#333333"/>
+    <SolidColorBrush x:Key="ScrollBarBackground" Color="#E8E8E8"/>
+    <SolidColorBrush x:Key="ScrollBarThumb" Color="#AAAAAA"/>
+    <SolidColorBrush x:Key="ToolBarBackground" Color="#F0F0F0"/>
+    <SolidColorBrush x:Key="ToolBarBorder" Color="#CCCCCC"/>
+    <SolidColorBrush x:Key="GridSplitterBackground" Color="#CCCCCC"/>
+    <SolidColorBrush x:Key="TreeViewBackground" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="TreeViewItemHover" Color="#E8F4FF"/>
+    <SolidColorBrush x:Key="ListBoxBackground" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="ListBoxItemHover" Color="#E8F4FF"/>
+    <SolidColorBrush x:Key="CheckBoxForeground" Color="#333333"/>
+    <SolidColorBrush x:Key="AccentColor" Color="#0078D4"/>
+    <SolidColorBrush x:Key="AccentColorLight" Color="#4BA0E8"/>
+    <SolidColorBrush x:Key="ErrorForeground" Color="#CC0000"/>
+    <SolidColorBrush x:Key="WarningForeground" Color="#CC8800"/>
+    <SolidColorBrush x:Key="SuccessForeground" Color="#008800"/>
 </ResourceDictionary>

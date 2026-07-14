@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>AnayPublisherStudio.SamplePlugin</RootNamespace>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <Version>1.0.0</Version>
+    <Description>Sample plugin demonstrating the Anay Publisher Studio plugin SDK</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AnayPublisherStudio.Application\AnayPublisherStudio.Application.csproj" />
+    <ProjectReference Include="..\..\src\AnayPublisherStudio.Domain\AnayPublisherStudio.Domain.csproj" />
+  </ItemGroup>
+</Project>

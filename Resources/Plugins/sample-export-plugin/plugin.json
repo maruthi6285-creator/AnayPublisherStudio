@@ -1,0 +1,15 @@
+{
+  "id": "sample-export-plugin",
+  "name": "Sample Export Plugin",
+  "version": "1.0.0",
+  "kind": "Export",
+  "assembly": "AnayPublisherStudio.SamplePlugin.dll",
+  "entryType": "AnayPublisherStudio.SamplePlugin.SampleExportPlugin",
+  "description": "Demonstrates plugin SDK: custom export format with validation",
+  "author": "Anay Publisher Studio",
+  "website": "https://github.com/anomalyco/AnayPublisherStudio",
+  "license": "MIT",
+  "minAppVersion": "1.0.0",
+  "dependencies": [],
+  "isSystem": false
+}

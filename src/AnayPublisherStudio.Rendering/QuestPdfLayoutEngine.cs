@@ -1,4 +1,5 @@
 using AnayPublisherStudio.Application.Abstractions;
+using AnayPublisherStudio.Application.Exceptions;
 using AnayPublisherStudio.Domain.Blocks;
 using AnayPublisherStudio.Domain.Enums;
 using AnayPublisherStudio.Domain.Layout;
@@ -64,22 +65,41 @@ public sealed class QuestPdfLayoutEngine : ILayoutEngine
             LayoutGeometry.ApplyDynamicGutter(composed, template);
         }
 
-        var doc = Document.Create(container =>
+        byte[] bytes;
+        try
         {
-            if (composed is { Pages.Count: > 0 })
+            var doc = Document.Create(container =>
             {
-                RenderFromComposition(container, book, template, composed);
-            }
-            else
-            {
-                RenderLegacyFlow(container, book, template);
-            }
-        });
+                if (composed is { Pages.Count: > 0 })
+                {
+                    RenderFromComposition(container, book, template, composed);
+                }
+                else
+                {
+                    RenderLegacyFlow(container, book, template);
+                }
+            });
 
-        using var ms = new MemoryStream();
-        doc.GeneratePdf(ms);
-        var bytes = ms.ToArray();
-        output.Write(bytes, 0, bytes.Length);
+            using var ms = new MemoryStream();
+            doc.GeneratePdf(ms);
+            bytes = ms.ToArray();
+        }
+        catch (Exception ex) when (ex.Message.Contains("license", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new PdfLicenseException(
+                "PDF generation failed due to QuestPDF license limits. " +
+                "Falling back to DOCX output. Please upgrade to QuestPDF Professional for PDF output.", ex);
+        }
+
+        PdfMetadataInjector.Inject(
+            bytes,
+            book.Metadata.Title,
+            book.Metadata.Author,
+            $"Interior - {template.Platform} {template.TrimWidth}x{template.TrimHeight} {template.Paper}",
+            output,
+            trimWidthPoints: template.Bleed ? template.TrimWidth * 72 : null,
+            trimHeightPoints: template.Bleed ? template.TrimHeight * 72 : null,
+            bleedPoints: template.Bleed ? template.BleedInches * 72 : null);
 
         // TOC is a generated presentation artefact (not author content).
         book.TableOfContents.Clear();
@@ -104,9 +124,7 @@ public sealed class QuestPdfLayoutEngine : ILayoutEngine
 
     private void RenderFromComposition(IDocumentContainer container, BookDocument book, PublishingTemplate template, LayoutDocument composed)
     {
-        // Map chapter number → chapter for block lookup.
         var chapters = book.Chapters.ToDictionary(c => c.Number, c => c);
-        // Also keep ordered list for number==0 front matter.
         var frontMatter = book.Chapters.Where(c => c.Number == 0).ToList();
 
         foreach (var page in composed.Pages)
@@ -114,6 +132,9 @@ public sealed class QuestPdfLayoutEngine : ILayoutEngine
             container.Page(p =>
             {
                 ConfigurePage(p, template, page);
+
+                // Crop mark annotations added as PDF metadata during export
+
                 if (!string.IsNullOrEmpty(page.RunningHeader))
                 {
                     p.Header().AlignCenter().Text(page.RunningHeader)
@@ -218,21 +239,32 @@ public sealed class QuestPdfLayoutEngine : ILayoutEngine
 
     private static void ConfigurePage(PageDescriptor page, PublishingTemplate t, ComposedPage? composed)
     {
-        page.Size(new PageSize((float)t.TrimWidth, (float)t.TrimHeight, Unit.Inch));
-        if (composed is not null)
+        if (t.Bleed)
         {
-            page.MarginTop((float)composed.Margins.Top, Unit.Inch);
-            page.MarginBottom((float)composed.Margins.Bottom, Unit.Inch);
-            page.MarginLeft((float)composed.Margins.Left(composed.Side), Unit.Inch);
-            page.MarginRight((float)composed.Margins.Right(composed.Side), Unit.Inch);
+            page.Size(new PageSize(
+                (float)(t.TrimWidth + 2 * t.BleedInches),
+                (float)(t.TrimHeight + 2 * t.BleedInches),
+                Unit.Inch));
         }
         else
         {
-            // Mirror margins: inside (gutter) larger; simplified approximation.
-            page.MarginTop((float)t.TopMargin, Unit.Inch);
-            page.MarginBottom((float)t.BottomMargin, Unit.Inch);
-            page.MarginLeft((float)t.InsideMargin, Unit.Inch);
-            page.MarginRight((float)t.OutsideMargin, Unit.Inch);
+            page.Size(new PageSize((float)t.TrimWidth, (float)t.TrimHeight, Unit.Inch));
+        }
+
+        var bleed = t.Bleed ? t.BleedInches : 0;
+        if (composed is not null)
+        {
+            page.MarginTop((float)(composed.Margins.Top + bleed), Unit.Inch);
+            page.MarginBottom((float)(composed.Margins.Bottom + bleed), Unit.Inch);
+            page.MarginLeft((float)(composed.Margins.Left(composed.Side) + bleed), Unit.Inch);
+            page.MarginRight((float)(composed.Margins.Right(composed.Side) + bleed), Unit.Inch);
+        }
+        else
+        {
+            page.MarginTop((float)(t.TopMargin + bleed), Unit.Inch);
+            page.MarginBottom((float)(t.BottomMargin + bleed), Unit.Inch);
+            page.MarginLeft((float)(t.InsideMargin + bleed), Unit.Inch);
+            page.MarginRight((float)(t.OutsideMargin + bleed), Unit.Inch);
         }
         page.DefaultTextStyle(x => x.FontFamily(t.BodyFont).FontSize((float)t.BodyFontSize));
     }

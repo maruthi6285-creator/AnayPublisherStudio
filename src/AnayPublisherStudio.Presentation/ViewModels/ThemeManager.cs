@@ -1,29 +1,22 @@
 using System.Windows;
 using System.Windows.Media;
+using AnayPublisherStudio.Application.Abstractions;
 
 namespace AnayPublisherStudio.Presentation.ViewModels;
 
-/// <summary>Swaps the merged theme dictionary between Light, Dark, and HighContrast.</summary>
-public static class ThemeManager
+public sealed class ThemeService : IThemeService
 {
-    private static bool _dark;
+    public event Action<ThemeKind>? ThemeChanged;
+    public ThemeKind ActiveTheme { get; private set; } = ThemeKind.Light;
+    public CustomTheme? CurrentCustomTheme { get; private set; }
 
-    /// <summary>Toggles the application theme between Light and Dark.</summary>
-    public static void Toggle()
+    public void ApplyTheme(ThemeKind theme, string? accentColor = null)
     {
-        _dark = !_dark;
-        ApplyTheme(_dark ? "Dark" : "Light");
-    }
-
-    /// <summary>Applies the specified theme by name.</summary>
-    /// <param name="themeName">Theme name: "Light", "Dark", or "HighContrast".</param>
-    /// <param name="accentColor">Optional accent color hex string (e.g., "#0078D4").</param>
-    public static void ApplyTheme(string themeName, string? accentColor = null)
-    {
-        var fileName = themeName switch
+        ActiveTheme = theme;
+        var fileName = theme switch
         {
-            "Dark" => "Dark",
-            "HighContrast" => "HighContrast",
+            ThemeKind.Dark => "Dark",
+            ThemeKind.HighContrast => "HighContrast",
             _ => "Light",
         };
 
@@ -35,8 +28,35 @@ public static class ThemeManager
         if (!string.IsNullOrEmpty(accentColor) && ColorConverter.ConvertFromString(accentColor) is Color color)
         {
             System.Windows.Application.Current.Resources["AccentColor"] = new SolidColorBrush(color);
+            var lighter = Color.FromArgb(color.A,
+                (byte)Math.Min(255, color.R + 64),
+                (byte)Math.Min(255, color.G + 64),
+                (byte)Math.Min(255, color.B + 64));
+            System.Windows.Application.Current.Resources["AccentColorLight"] = new SolidColorBrush(lighter);
         }
 
-        _dark = themeName == "Dark";
+        ThemeChanged?.Invoke(theme);
+    }
+
+    public void ApplyCustomTheme(CustomTheme theme)
+    {
+        CurrentCustomTheme = theme;
+        ActiveTheme = ThemeKind.Custom;
+
+        ApplyColor("WindowBackground", theme.WindowBackground);
+        ApplyColor("CanvasBackground", theme.CanvasBackground);
+        ApplyColor("PrimaryText", theme.PrimaryText);
+        ApplyColor("SecondaryText", theme.SecondaryText);
+        ApplyColor("BorderBrush", theme.BorderBrush);
+        ApplyColor("ButtonBackground", theme.ButtonBackground);
+        ApplyColor("AccentColor", theme.AccentColor);
+
+        ThemeChanged?.Invoke(ThemeKind.Custom);
+    }
+
+    private static void ApplyColor(string key, string hex)
+    {
+        if (ColorConverter.ConvertFromString(hex) is Color color)
+            System.Windows.Application.Current.Resources[key] = new SolidColorBrush(color);
     }
 }

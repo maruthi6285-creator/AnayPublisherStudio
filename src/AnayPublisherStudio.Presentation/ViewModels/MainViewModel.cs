@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using AnayPublisherStudio.Application.Abstractions;
 using AnayPublisherStudio.Application.Configuration;
+using AnayPublisherStudio.Application.Pipeline;
 using AnayPublisherStudio.Domain.Layout;
 using AnayPublisherStudio.Domain.Model;
 using AnayPublisherStudio.Domain.ValueObjects;
@@ -13,11 +14,6 @@ using Microsoft.Win32;
 
 namespace AnayPublisherStudio.Presentation.ViewModels;
 
-/// <summary>
-/// Primary view-model backing the shell. Holds no business logic itself; it
-/// delegates to the Application engines resolved through DI, keeping the UI
-/// free of publishing rules (Clean Architecture / MVVM).
-/// </summary>
 public sealed partial class MainViewModel : ObservableObject
 {
     private readonly IDocumentParser _parser;
@@ -31,6 +27,13 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly ISpineCalculator? _spine;
     private readonly IValidationEngine? _validator;
     private readonly IProfessionalLayoutEngine? _layout;
+    private readonly IThemeService _theme;
+    private readonly ILocalizationService _localization;
+    private readonly IDeveloperConsoleService _console;
+    private readonly IPerformanceMonitor _perf;
+    private readonly IMemoryMonitor _memory;
+    private readonly IDiagnosticExportService _diagnostics;
+    private readonly IAssetManager _assets;
 
     private PublishingProject _project = new();
     private BookDocument _book = new();
@@ -39,8 +42,8 @@ public sealed partial class MainViewModel : ObservableObject
 
     [ObservableProperty] private string _title = string.Empty;
     [ObservableProperty] private string _author = string.Empty;
-    [ObservableProperty] private string _status = "Ready.";
-    [ObservableProperty] private string _previewMessage = "Open a manuscript to see the live publishing preview.";
+    [ObservableProperty] private string _status = "";
+    [ObservableProperty] private string _previewMessage = "";
     [ObservableProperty] private string _previewHeader = string.Empty;
     [ObservableProperty] private string _previewFooter = string.Empty;
     [ObservableProperty] private string _previewModeLabel = "Preview: Single page";
@@ -50,33 +53,32 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _pageCountLabel = "of 0";
     [ObservableProperty] private int _currentPage = 1;
     [ObservableProperty] private double _zoom = 1.0;
-    [ObservableProperty] private double _previewPageWidth = 432; // 6in * 72
-    [ObservableProperty] private double _previewPageHeight = 648; // 9in * 72
+    [ObservableProperty] private double _previewPageWidth = 432;
+    [ObservableProperty] private double _previewPageHeight = 648;
     [ObservableProperty] private bool _showGuides = true;
     [ObservableProperty] private string _previewMode = "single";
     [ObservableProperty] private string? _selectedTemplateId;
+    [ObservableProperty] private AssetEntry? _selectedAsset;
 
-    /// <summary>Chapters shown in the structure tree.</summary>
     public ObservableCollection<Chapter> Chapters { get; } = new();
-
-    /// <summary>Validation findings shown in the side panel.</summary>
     public ObservableCollection<string> Findings { get; } = new();
-
-    /// <summary>Bookmark titles (presentation navigation).</summary>
     public ObservableCollection<string> Bookmarks { get; } = new();
-
-    /// <summary>Asset labels.</summary>
     public ObservableCollection<string> Assets { get; } = new();
-
-    /// <summary>Available template ids.</summary>
+    public ObservableCollection<AssetEntry> AssetEntries { get; } = new();
     public ObservableCollection<string> Templates { get; } = new();
-
-    /// <summary>Settings ViewModel for the Settings panel.</summary>
     public SettingsViewModel Settings { get; }
 
-    /// <summary>Creates the view-model from its injected dependencies.</summary>
-    public MainViewModel(IDocumentParser parser, IExportService exporter,
-        IProjectRepository projects, IAiAssistant ai, ISettingsService settings,
+    public MainViewModel(
+        IDocumentParser parser, IExportService exporter,
+        IProjectRepository projects, IAiAssistant ai,
+        ISettingsService settings,
+        IThemeService theme,
+        ILocalizationService localization,
+        IDeveloperConsoleService console,
+        IPerformanceMonitor perf,
+        IMemoryMonitor memory,
+        IDiagnosticExportService diagnostics,
+        IAssetManager assets,
         ITemplateProvider? templates = null,
         ILivePreviewEngine? preview = null,
         ICoverDesigner? coverDesigner = null,
@@ -95,8 +97,18 @@ public sealed partial class MainViewModel : ObservableObject
         _spine = spine;
         _validator = validator;
         _layout = layout;
+        _theme = theme;
+        _localization = localization;
+        _console = console;
+        _perf = perf;
+        _memory = memory;
+        _diagnostics = diagnostics;
+        _assets = assets;
 
-        Settings = new SettingsViewModel(settings);
+        _localization.CultureChanged += OnCultureChanged;
+        _assets.AssetsChanged += OnAssetsChanged;
+
+        Settings = new SettingsViewModel(settings, theme, localization);
         _selectedTemplateId = settings.Options.App.DefaultTemplateId;
 
         if (_templates is not null)
@@ -108,7 +120,41 @@ public sealed partial class MainViewModel : ObservableObject
             Templates.Add("amazon-paperback-6x9");
 
         if (!string.IsNullOrEmpty(settings.UserSettings.ThemeOverride))
-            ThemeManager.ApplyTheme(settings.UserSettings.ThemeOverride, settings.UserSettings.AccentColorOverride);
+        {
+            var kind = settings.UserSettings.ThemeOverride switch
+            {
+                "Dark" => ThemeKind.Dark,
+                "HighContrast" => ThemeKind.HighContrast,
+                _ => ThemeKind.Light,
+            };
+            _theme.ApplyTheme(kind, settings.UserSettings.AccentColorOverride);
+        }
+
+        UpdateLocalizedStrings();
+
+        _memory.Start(TimeSpan.FromSeconds(5));
+        _console.LogInfo("Application started");
+        _console.Log($"Theme: {_theme.ActiveTheme}");
+        _console.Log($"Culture: {_localization.CurrentCulture}");
+    }
+
+    private void UpdateLocalizedStrings()
+    {
+        Status = _localization["App.Ready"];
+        PreviewMessage = _localization["App.OpenManuscript"];
+    }
+
+    private void OnCultureChanged(string culture)
+    {
+        UpdateLocalizedStrings();
+        _console.Log($"Culture changed to {culture}");
+    }
+
+    private void OnAssetsChanged()
+    {
+        AssetEntries.Clear();
+        foreach (var a in _assets.Assets)
+            AssetEntries.Add(a);
     }
 
     [RelayCommand]
@@ -117,23 +163,31 @@ public sealed partial class MainViewModel : ObservableObject
         var dlg = new OpenFileDialog { Filter = "Word Documents (*.docx)|*.docx" };
         if (dlg.ShowDialog() != true) return;
 
-        _project.ManuscriptPath = dlg.FileName;
-        using var fs = File.OpenRead(dlg.FileName);
-        _book = _parser.Parse(fs);
+        using (_perf.BeginOperation("OpenManuscript"))
+        {
+            _project.ManuscriptPath = dlg.FileName;
+            using var fs = File.OpenRead(dlg.FileName);
+            _book = _parser.Parse(fs);
 
-        Title = _book.Metadata.Title;
-        Author = _book.Metadata.Author;
-        Chapters.Clear();
-        foreach (var c in _book.Chapters) Chapters.Add(c);
+            Title = _book.Metadata.Title;
+            Author = _book.Metadata.Author;
+            Chapters.Clear();
+            foreach (var c in _book.Chapters) Chapters.Add(c);
 
-        Bookmarks.Clear();
-        foreach (var c in _book.Chapters.Where(c => c.Number > 0))
-            Bookmarks.Add(c.Title);
+            Bookmarks.Clear();
+            foreach (var c in _book.Chapters.Where(c => c.Number > 0))
+                Bookmarks.Add(c.Title);
 
-        Assets.Clear();
-        Assets.Add(Path.GetFileName(dlg.FileName));
-        if (!string.IsNullOrEmpty(_project.FrontCoverImagePath))
-            Assets.Add("Front cover image");
+            Assets.Clear();
+            Assets.Add(Path.GetFileName(dlg.FileName));
+            if (!string.IsNullOrEmpty(_project.FrontCoverImagePath))
+                Assets.Add("Front cover image");
+
+            _assets.AddAsset(dlg.FileName);
+
+            _console.LogInfo($"Opened manuscript: {Path.GetFileName(dlg.FileName)}");
+            _console.Log($"Chapters: {_book.Chapters.Count}, blocks: {_book.TotalBlocks}");
+        }
 
         Status = $"Opened '{Path.GetFileName(dlg.FileName)}'.";
         _ = RefreshPreviewAsync();
@@ -147,26 +201,38 @@ public sealed partial class MainViewModel : ObservableObject
         if (!string.IsNullOrEmpty(SelectedTemplateId))
             _project.TemplateId = SelectedTemplateId;
         await _projects.SaveAsync(_project);
-        Status = "Project saved.";
+        Status = _localization["App.ProjectSaved"];
+        _console.LogInfo("Project saved");
     }
 
     [RelayCommand]
     private async Task Publish()
     {
-        if (string.IsNullOrEmpty(_project.ManuscriptPath)) { Status = "Open a manuscript first."; return; }
+        if (string.IsNullOrEmpty(_project.ManuscriptPath)) { Status = _localization["App.NoManuscript"]; return; }
         _project.Metadata.Title = Title;
         _project.Metadata.Author = Author;
         if (!string.IsNullOrEmpty(SelectedTemplateId))
             _project.TemplateId = SelectedTemplateId;
 
         var outDir = Path.Combine(Path.GetDirectoryName(_project.ManuscriptPath)!, "output");
-        Status = "Publishing...";
-        var result = await _exporter.PublishAsync(_project, outDir);
+        Status = _localization["App.Publishing"];
+        _console.LogInfo("Starting publish pipeline");
+
+        PublishResult result;
+        using (_perf.BeginOperation("Publish"))
+        {
+            result = await _exporter.PublishAsync(_project, outDir);
+        }
+
+        var outputKind = result.DocxPath is not null ? "DOCX" : "PDF";
+        _console.Log($"Published {result.PageCount} pages ({outputKind}), {result.Validation.ErrorCount} errors");
+        if (result.DocxPath is not null)
+            _console.Log($"DOCX fallback: {result.DocxPath}");
 
         Findings.Clear();
         foreach (var f in result.Validation.Findings) Findings.Add(f.ToString());
         Status = result.Validation.IsPublishable
-            ? $"Exported {result.PageCount} pages. Ready to publish."
+            ? $"Exported {result.PageCount} pages ({outputKind}). Ready to publish."
             : $"Exported with {result.Validation.ErrorCount} blocking issue(s).";
         PageCountLabel = $"of {result.PageCount}";
     }
@@ -176,6 +242,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         _book.Metadata.Description = await _ai.GenerateDescriptionAsync(_book);
         Status = "AI description suggested (user approval required to apply).";
+        _console.LogInfo("AI description generated");
     }
 
     [RelayCommand]
@@ -184,6 +251,7 @@ public sealed partial class MainViewModel : ObservableObject
         var kw = await _ai.SuggestKeywordsAsync(_book);
         _book.Metadata.Keywords = kw.ToList();
         Status = $"AI suggested {kw.Count} keywords (user approval required).";
+        _console.LogInfo($"AI suggested {kw.Count} keywords");
     }
 
     [RelayCommand]
@@ -205,7 +273,62 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ToggleTheme() => ThemeManager.Toggle();
+    private void ToggleTheme()
+    {
+        var next = _theme.ActiveTheme switch
+        {
+            ThemeKind.Light => ThemeKind.Dark,
+            ThemeKind.Dark => ThemeKind.HighContrast,
+            _ => ThemeKind.Light,
+        };
+        _theme.ApplyTheme(next);
+        _console.Log($"Theme switched to {next}");
+    }
+
+    [RelayCommand]
+    private async Task OpenDiagnostics()
+    {
+        var msg = string.Join(Environment.NewLine, _console.Messages.TakeLast(50));
+        var mem = _memory.Current;
+        var info =
+            $"=== Diagnostics ===\n" +
+            $"Memory (managed): {mem.ManagedMemoryBytes / 1024 / 1024} MB\n" +
+            $"Memory (process): {mem.ProcessMemoryBytes / 1024 / 1024} MB\n" +
+            $"CPU: {mem.CpuUsagePercent:F1}%\n" +
+            $"Theme: {_theme.ActiveTheme}\n" +
+            $"Culture: {_localization.CurrentCulture}\n" +
+            $"Assets: {_assets.Assets.Count}\n" +
+            $"\n=== Recent Console ===\n{msg}";
+        MessageBox.Show(info, "Developer Console", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    [RelayCommand]
+    private async Task ExportDiagnostics()
+    {
+        var path = await _diagnostics.ExportDiagnosticsAsync();
+        Status = $"Diagnostics exported to {path}";
+        _console.LogInfo($"Diagnostics exported to {path}");
+    }
+
+    [RelayCommand]
+    private async Task AddAsset()
+    {
+        var dlg = new OpenFileDialog
+        {
+            Filter = "All Assets (*.png;*.jpg;*.ttf;*.otf;*.docx;*.pdf;*.json)|*.png;*.jpg;*.jpeg;*.ttf;*.otf;*.docx;*.pdf;*.json"
+        };
+        if (dlg.ShowDialog() == true)
+        {
+            _assets.AddAsset(dlg.FileName);
+            _console.LogInfo($"Asset added: {Path.GetFileName(dlg.FileName)}");
+        }
+    }
+
+    [RelayCommand]
+    private void RefreshAssets()
+    {
+        _assets.Refresh();
+    }
 
     [RelayCommand]
     private async Task RefreshPreview() => await RefreshPreviewAsync();
@@ -213,6 +336,7 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand] private void PreviewSingle() { PreviewMode = "single"; PreviewModeLabel = "Preview: Single page"; }
     [RelayCommand] private void PreviewFacing() { PreviewMode = "facing"; PreviewModeLabel = "Preview: Facing pages"; }
     [RelayCommand] private void PreviewContinuous() { PreviewMode = "continuous"; PreviewModeLabel = "Preview: Continuous"; }
+
     [RelayCommand]
     private void ToggleGuides()
     {
@@ -255,6 +379,7 @@ public sealed partial class MainViewModel : ObservableObject
         var design = _coverDesigner.CreateDesign(_project, _activeTemplate, pages);
         Status = $"Cover design ready: {design.OverallWidth:0.###}×{design.OverallHeight:0.###}in, spine {design.SpineWidth:0.###}in, {design.Layers.Count} layers.";
         PreviewDetails = $"Cover layers: {string.Join(", ", design.Layers.Select(l => l.Name))}";
+        _console.LogInfo("Cover design created");
     }
 
     [RelayCommand]
@@ -283,6 +408,7 @@ public sealed partial class MainViewModel : ObservableObject
         Status = report.IsPublishable
             ? "Preflight passed (no errors)."
             : $"Preflight: {report.ErrorCount} error(s), {report.WarningCount} warning(s).";
+        _console.LogInfo($"Preflight: {report.ErrorCount} errors, {report.WarningCount} warnings");
     }
 
     private async Task RefreshPreviewAsync()
@@ -297,13 +423,12 @@ public sealed partial class MainViewModel : ObservableObject
         PreviewPageWidth = _activeTemplate.TrimWidth * 72 * Zoom;
         PreviewPageHeight = _activeTemplate.TrimHeight * 72 * Zoom;
 
-        if (_preview is not null)
+        using (_perf.BeginOperation("RefreshPreview"))
         {
-            _layoutDoc = await _preview.RefreshAsync(_book, _activeTemplate);
-        }
-        else if (_layout is not null)
-        {
-            _layoutDoc = await _layout.ComposeAsync(_book, _activeTemplate);
+            if (_preview is not null)
+                _layoutDoc = await _preview.RefreshAsync(_book, _activeTemplate);
+            else if (_layout is not null)
+                _layoutDoc = await _layout.ComposeAsync(_book, _activeTemplate);
         }
 
         CurrentPage = 1;

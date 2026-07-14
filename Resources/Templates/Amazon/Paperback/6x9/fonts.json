@@ -1,6 +1,6 @@
 {
   "embed": true,
   "families": [
-    { "name": "Georgia", "fallback": "Times New Roman", "license": "system" }
+    { "name": "Garamond", "fallback": "Times New Roman", "license": "system" }
   ]
 }

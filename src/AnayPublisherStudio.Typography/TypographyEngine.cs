@@ -65,11 +65,11 @@ public sealed class TypographyEngine : ITypographyEngine
         var baseSize = template.BodyFontSize;
         var sizeByLevel = level switch
         {
-            HeadingLevel.H1 => baseSize * 2.0,
-            HeadingLevel.H2 => baseSize * 1.6,
-            HeadingLevel.H3 => baseSize * 1.35,
-            HeadingLevel.H4 => baseSize * 1.2,
-            HeadingLevel.H5 => baseSize * 1.1,
+            HeadingLevel.H1 => baseSize * 2.0,      // 22.0 pt
+            HeadingLevel.H2 => baseSize * 1.45,     // 16.0 pt
+            HeadingLevel.H3 => baseSize * 1.27,     // 14.0 pt
+            HeadingLevel.H4 => baseSize * 1.09,     // 12.0 pt
+            HeadingLevel.H5 => baseSize * 1.0,      // 11.0 pt
             _ => baseSize * 1.0,
         };
         return new DomainTypography

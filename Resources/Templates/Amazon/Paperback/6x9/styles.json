@@ -1,7 +1,9 @@
 {
-  "body":     { "font": "Georgia", "size": 11, "lineHeight": 1.35, "firstLineIndent": 0.25, "align": "Justify" },
-  "heading1": { "font": "Georgia", "size": 22, "bold": true, "spaceBefore": 24, "startsNewPage": true },
-  "heading2": { "font": "Georgia", "size": 16, "bold": true, "spaceBefore": 12 },
-  "quote":    { "font": "Georgia", "size": 10, "italic": true, "indent": 0.5 },
-  "caption":  { "font": "Georgia", "size": 9,  "italic": true, "align": "Center" }
+  "body":     { "font": "Garamond", "size": 11, "lineHeight": 1.15, "firstLineIndent": 0.25, "align": "Justify" },
+  "heading1": { "font": "Garamond", "size": 22, "bold": true, "align": "Center", "spaceBefore": 24, "startsNewPage": true },
+  "heading2": { "font": "Garamond", "size": 16, "bold": true, "align": "Left", "spaceBefore": 12 },
+  "heading3": { "font": "Garamond", "size": 14, "bold": true, "align": "Left", "spaceBefore": 8 },
+  "heading4": { "font": "Garamond", "size": 12, "bold": true, "italic": true, "align": "Left", "spaceBefore": 6 },
+  "quote":    { "font": "Garamond", "size": 11, "italic": true, "indent": 0.5, "align": "Justify" },
+  "caption":  { "font": "Garamond", "size": 10, "italic": true, "align": "Center" }
 }

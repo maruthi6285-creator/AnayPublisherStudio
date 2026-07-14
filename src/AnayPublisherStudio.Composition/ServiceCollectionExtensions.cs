@@ -4,9 +4,11 @@ using AnayPublisherStudio.Application.Pipeline;
 using AnayPublisherStudio.Infrastructure.Ai;
 using AnayPublisherStudio.Infrastructure.Configuration;
 using AnayPublisherStudio.Infrastructure.Cover;
+using AnayPublisherStudio.Infrastructure.Diagnostics;
 using AnayPublisherStudio.Infrastructure.Export;
 using AnayPublisherStudio.Infrastructure.Integrity;
 using AnayPublisherStudio.Infrastructure.Layout;
+using AnayPublisherStudio.Infrastructure.Localization;
 using AnayPublisherStudio.Infrastructure.Parsing;
 using AnayPublisherStudio.Infrastructure.Persistence;
 using AnayPublisherStudio.Infrastructure.Plugins;
@@ -135,12 +137,19 @@ public static class ServiceCollectionExtensions
             new TemplatePackageService(templatesRoot, sp.GetRequiredService<ITemplateProvider>()));
         services.AddSingleton<IPluginManager>(_ =>
             new PluginManager(Path.Combine(templatesRoot, "..", "Plugins")));
+        services.AddSingleton<IAssetManager, AssetManager>();
+        services.AddSingleton<IPerformanceMonitor, PerformanceMonitor>();
+        services.AddSingleton<IMemoryMonitor, MemoryMonitor>();
+        services.AddSingleton<IDeveloperConsoleService, DeveloperConsoleService>();
+        services.AddSingleton<ILocalizationService, LocalizationService>();
+        services.AddSingleton<IDiagnosticExportService, DiagnosticExportService>();
         services.AddSingleton<IArtifactExporter>(sp =>
             new ArtifactExporter(
                 sp.GetRequiredService<ILayoutEngine>(),
                 sp.GetRequiredService<ICoverEngine>(),
                 sp.GetRequiredService<IValidationEngine>(),
-                sp.GetService<IContentIntegrityGuard>()));
+                sp.GetService<IContentIntegrityGuard>(),
+                sp.GetService<IDeveloperConsoleService>()));
         services.AddSingleton<IExportService>(sp =>
             new PublishPipeline(
                 sp.GetRequiredService<IDocumentParser>(),
@@ -152,7 +161,12 @@ public static class ServiceCollectionExtensions
                 sp.GetService<IContentIntegrityGuard>(),
                 sp.GetService<IProfessionalLayoutEngine>(),
                 sp.GetService<IArtifactExporter>(),
-                sp.GetService<ICoverDesigner>()));
+                sp.GetService<ICoverDesigner>(),
+                (book, docxPath) =>
+                {
+                    DocxDocumentWriter.Write(book, docxPath);
+                    return docxPath;
+                }));
     }
 
     private static string ResolveAppDataDirectory(ApplicationOptions options)

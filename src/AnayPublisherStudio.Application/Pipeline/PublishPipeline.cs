@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AnayPublisherStudio.Application.Abstractions;
+using AnayPublisherStudio.Application.Exceptions;
 using AnayPublisherStudio.Domain.Enums;
 using AnayPublisherStudio.Domain.Layout;
 using AnayPublisherStudio.Domain.Model;
@@ -25,6 +26,7 @@ public sealed class PublishPipeline : IExportService
     private readonly IProfessionalLayoutEngine? _professional;
     private readonly IArtifactExporter? _artifacts;
     private readonly ICoverDesigner? _coverDesigner;
+    private readonly Func<BookDocument, string, string>? _docxFallback;
 
     /// <summary>Creates the pipeline from its engine dependencies.</summary>
     public PublishPipeline(
@@ -34,7 +36,7 @@ public sealed class PublishPipeline : IExportService
         ILayoutEngine layout,
         ICoverEngine cover,
         IValidationEngine validator)
-        : this(parser, templates, spine, layout, cover, validator, null, null, null, null)
+        : this(parser, templates, spine, layout, cover, validator, null, null, null, null, null)
     {
     }
 
@@ -50,7 +52,7 @@ public sealed class PublishPipeline : IExportService
         ICoverEngine cover,
         IValidationEngine validator,
         IContentIntegrityGuard? integrity)
-        : this(parser, templates, spine, layout, cover, validator, integrity, null, null, null)
+        : this(parser, templates, spine, layout, cover, validator, integrity, null, null, null, null)
     {
     }
 
@@ -66,6 +68,23 @@ public sealed class PublishPipeline : IExportService
         IProfessionalLayoutEngine? professional,
         IArtifactExporter? artifacts,
         ICoverDesigner? coverDesigner)
+        : this(parser, templates, spine, layout, cover, validator, integrity, professional, artifacts, coverDesigner, null)
+    {
+    }
+
+    /// <summary>Full constructor with DOCX fallback for PDF license failures.</summary>
+    public PublishPipeline(
+        IDocumentParser parser,
+        ITemplateProvider templates,
+        ISpineCalculator spine,
+        ILayoutEngine layout,
+        ICoverEngine cover,
+        IValidationEngine validator,
+        IContentIntegrityGuard? integrity,
+        IProfessionalLayoutEngine? professional,
+        IArtifactExporter? artifacts,
+        ICoverDesigner? coverDesigner,
+        Func<BookDocument, string, string>? docxFallback)
     {
         _parser = parser;
         _templates = templates;
@@ -77,6 +96,7 @@ public sealed class PublishPipeline : IExportService
         _professional = professional;
         _artifacts = artifacts;
         _coverDesigner = coverDesigner;
+        _docxFallback = docxFallback;
     }
 
     /// <inheritdoc/>
@@ -113,11 +133,28 @@ public sealed class PublishPipeline : IExportService
             layoutDoc = await _professional.ComposeAsync(book, template, ct);
 
         // 2. Layout + render interior PDF (also resolves spine input: page count).
+        //    Falls back to DOCX if PDF license is exceeded.
         var printPath = Path.Combine(outputDirectory, "interior-print.pdf");
-        await using (var pdf = File.Create(printPath))
-            result.PageCount = _layout.Render(book, template, pdf);
-        result.PrintPdfPath = printPath;
-        result.Artifacts[ExportFormat.PrintPdf] = printPath;
+        try
+        {
+            await using (var pdf = File.Create(printPath))
+                result.PageCount = _layout.Render(book, template, pdf);
+            result.PrintPdfPath = printPath;
+            result.Artifacts[ExportFormat.PrintPdf] = printPath;
+        }
+        catch (PdfLicenseException)
+        {
+            var docxPath = Path.Combine(outputDirectory, "manuscript.docx");
+            if (_docxFallback is not null)
+            {
+                _docxFallback(book, docxPath);
+                result.DocxPath = docxPath;
+                result.Artifacts[ExportFormat.Docx] = docxPath;
+            }
+            result.PrintPdfPath = null;
+            result.PageCount = (book.Chapters ?? []).Sum(c => (c.Blocks ?? []).Count);
+            return result;
+        }
 
         // Prefer composed page count when available and larger (blank recto pages).
         if (layoutDoc is not null && layoutDoc.PageCount > result.PageCount)
@@ -135,10 +172,17 @@ public sealed class PublishPipeline : IExportService
         }
 
         var coverPath = Path.Combine(outputDirectory, "cover.pdf");
-        await using (var cov = File.Create(coverPath))
-            _cover.Render(project, template, result.PageCount, cov);
-        result.CoverPdfPath = coverPath;
-        result.Artifacts[ExportFormat.CoverPdf] = coverPath;
+        try
+        {
+            await using (var cov = File.Create(coverPath))
+                _cover.Render(project, template, result.PageCount, cov);
+            result.CoverPdfPath = coverPath;
+            result.Artifacts[ExportFormat.CoverPdf] = coverPath;
+        }
+        catch (PdfLicenseException)
+        {
+            result.CoverPdfPath = null;
+        }
 
         // 4. Verify author content is still intact after presentation.
         if (_integrity is not null && expectedFingerprint is not null)

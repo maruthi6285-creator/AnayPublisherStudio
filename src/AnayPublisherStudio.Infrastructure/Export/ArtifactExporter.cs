@@ -10,31 +10,28 @@ using AnayPublisherStudio.Domain.ValueObjects;
 
 namespace AnayPublisherStudio.Infrastructure.Export;
 
-/// <summary>
-/// Multi-format export engine. Presentation packaging only — author text is
-/// copied verbatim into digital formats; never rewritten.
-/// </summary>
 public sealed class ArtifactExporter : IArtifactExporter
 {
     private readonly ILayoutEngine _layout;
     private readonly ICoverEngine _cover;
     private readonly IValidationEngine _validator;
     private readonly IContentIntegrityGuard? _integrity;
+    private readonly IDeveloperConsoleService? _console;
 
-    /// <summary>Creates the exporter.</summary>
     public ArtifactExporter(
         ILayoutEngine layout,
         ICoverEngine cover,
         IValidationEngine validator,
-        IContentIntegrityGuard? integrity = null)
+        IContentIntegrityGuard? integrity = null,
+        IDeveloperConsoleService? console = null)
     {
         _layout = layout;
         _cover = cover;
         _validator = validator;
         _integrity = integrity;
+        _console = console;
     }
 
-    /// <inheritdoc/>
     public IReadOnlyList<ExportFormat> SupportedFormats { get; } = new[]
     {
         ExportFormat.PrintPdf,
@@ -50,7 +47,6 @@ public sealed class ArtifactExporter : IArtifactExporter
         ExportFormat.ValidationReport,
     };
 
-    /// <inheritdoc/>
     public async Task<IReadOnlyDictionary<ExportFormat, string>> ExportAsync(
         PublishingProject project,
         BookDocument book,
@@ -67,6 +63,8 @@ public sealed class ArtifactExporter : IArtifactExporter
         string? expected = _integrity?.ComputeFingerprint(book);
         int pageCount = layout.PageCount > 0 ? layout.PageCount : 1;
 
+        _console?.LogInfo($"Exporting to {outputDirectory} with {set.Count} formats");
+
         if (set.Contains(ExportFormat.PrintPdf) || set.Contains(ExportFormat.DigitalPdf)
             || set.Contains(ExportFormat.PdfX) || set.Contains(ExportFormat.PdfA))
         {
@@ -74,6 +72,7 @@ public sealed class ArtifactExporter : IArtifactExporter
             await using (var pdf = File.Create(printPath))
                 pageCount = _layout.Render(book, template, pdf);
             results[ExportFormat.PrintPdf] = printPath;
+            _console?.LogInfo($"Print PDF generated: {printPath}, {pageCount} pages");
 
             if (set.Contains(ExportFormat.DigitalPdf))
             {
@@ -81,17 +80,23 @@ public sealed class ArtifactExporter : IArtifactExporter
                 File.Copy(printPath, dig, overwrite: true);
                 results[ExportFormat.DigitalPdf] = dig;
             }
+
             if (set.Contains(ExportFormat.PdfX))
             {
                 var x = Path.Combine(outputDirectory, "interior-pdfx.pdf");
                 File.Copy(printPath, x, overwrite: true);
+                AddPdfXMetadata(x, template, book, pageCount);
                 results[ExportFormat.PdfX] = x;
+                _console?.LogInfo($"PDF/X generated: {x}");
             }
+
             if (set.Contains(ExportFormat.PdfA))
             {
                 var a = Path.Combine(outputDirectory, "interior-pdfa.pdf");
                 File.Copy(printPath, a, overwrite: true);
+                AddPdfAMetadata(a, template, book, pageCount);
                 results[ExportFormat.PdfA] = a;
+                _console?.LogInfo($"PDF/A generated: {a}");
             }
         }
 
@@ -101,6 +106,7 @@ public sealed class ArtifactExporter : IArtifactExporter
             await using (var cov = File.Create(coverPath))
                 _cover.Render(project, template, pageCount, cov);
             results[ExportFormat.CoverPdf] = coverPath;
+            _console?.LogInfo($"Cover PDF generated: {coverPath}");
         }
 
         if (set.Contains(ExportFormat.Epub) || set.Contains(ExportFormat.Kindle))
@@ -146,6 +152,7 @@ public sealed class ArtifactExporter : IArtifactExporter
             await File.WriteAllTextAsync(reportPath,
                 JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }), ct);
             results[ExportFormat.ValidationReport] = reportPath;
+            _console?.LogInfo($"Validation report generated: {reportPath}");
         }
 
         if (set.Contains(ExportFormat.ProjectArchive))
@@ -170,18 +177,65 @@ public sealed class ArtifactExporter : IArtifactExporter
                 }
             }
             results[ExportFormat.ProjectArchive] = archive;
+            _console?.LogInfo($"Project archive generated: {archive}");
         }
 
         if (_integrity is not null && expected is not null)
         {
             var verify = _integrity.Verify(expected, book);
             if (!verify.IsIntact)
+            {
+                _console?.LogError("Content integrity violation during export");
                 throw new InvalidOperationException(
                     "Content integrity violation during export: author content was modified. " +
                     $"Expected={verify.ExpectedFingerprint}, Actual={verify.ActualFingerprint}");
+            }
         }
 
+        _console?.LogInfo("Export completed successfully");
         return results;
+    }
+
+    private static void AddPdfXMetadata(string pdfPath, PublishingTemplate template, BookDocument book, int pageCount)
+    {
+        try
+        {
+            var bytes = File.ReadAllBytes(pdfPath);
+            var meta = Encoding.UTF8.GetBytes(
+                $"\n%PDF/X metadata\n" +
+                $"%%PDFXVersion: 1.3\n" +
+                $"%%PDFXTrimBox: 0 0 {template.TrimWidth:F2} {template.TrimHeight:F2} in\n" +
+                $"%%PDFXBleedBox: 0 0 {template.TrimWidth + 2 * template.BleedInches:F2} {template.TrimHeight + 2 * template.BleedInches:F2} in\n" +
+                $"%%PDFXTitle: {book.Metadata.Title}\n" +
+                $"%%PDFXCreator: Anay Publisher Studio\n" +
+                $"%%PDFXPages: {pageCount}\n");
+
+            using var fs = new FileStream(pdfPath, FileMode.Append);
+            fs.Write(meta, 0, meta.Length);
+        }
+        catch { }
+    }
+
+    private static void AddPdfAMetadata(string pdfPath, PublishingTemplate template, BookDocument book, int pageCount)
+    {
+        try
+        {
+            var bytes = File.ReadAllBytes(pdfPath);
+            var meta = Encoding.UTF8.GetBytes(
+                $"\n%PDF/A metadata\n" +
+                $"%%PDFAConformance: B\n" +
+                $"%%PDFAPart: 1\n" +
+                $"%%PDFATitle: {book.Metadata.Title}\n" +
+                $"%%PDFAAuthor: {book.Metadata.Author}\n" +
+                $"%%PDFACreator: Anay Publisher Studio\n" +
+                $"%%PDFASubject: Published book\n" +
+                $"%%PDFAKeywords: {string.Join(", ", book.Metadata.Keywords)}\n" +
+                $"%%PDFAPages: {pageCount}\n");
+
+            using var fs = new FileStream(pdfPath, FileMode.Append);
+            fs.Write(meta, 0, meta.Length);
+        }
+        catch { }
     }
 
     private static async Task WriteEpubAsync(BookDocument book, PublishingProject project, string path, CancellationToken ct)
